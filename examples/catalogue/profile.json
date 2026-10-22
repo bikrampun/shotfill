@@ -1,0 +1,10 @@
+{
+  "style": "professional product photograph, soft studio lighting, plain cream background, sharp focus, centered",
+  "avoid": "text, letters, logos, labels, watermark, people, hands, clutter, busy background, blurry, illustration, cartoon",
+  "checks": {
+    "photo": ["Does this look like a real product photograph?", "yes"],
+    "plain": ["Is the background plain and uncluttered?", "yes"],
+    "text": ["Can you read any actual words, letters, logos or numbers?", "no"]
+  },
+  "size": [1024, 1024]
+}

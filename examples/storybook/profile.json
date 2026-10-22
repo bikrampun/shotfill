@@ -1,0 +1,17 @@
+{
+  "style": "painterly storybook illustration, oil painting texture, visible brushstrokes, warm golden light",
+  "avoid": "photo, photorealistic, 3d render, cartoon, anime, flat vector, line art, text, letters, numbers, signs, logos, watermark, picture frame, border, deformed hands, extra fingers",
+  "checks": {
+    "painted": ["Does this look like a painted illustration rather than a photograph?", "yes"],
+    "cartoon": ["Does this look like a flat cartoon or anime drawing?", "no"],
+    "text": ["Can you read any actual words, letters or numbers? Faint scribbles that cannot be read do not count.", "no"]
+  },
+  "character": {
+    "trigger": "red fox",
+    "checks": {
+      "fox": ["Is there a small red fox in the picture?", "yes"],
+      "scarf": ["Is the fox wearing a blue scarf?", "yes"]
+    }
+  },
+  "soft": ["scarf"]
+}

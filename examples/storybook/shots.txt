@@ -1,0 +1,5 @@
+Storybook shot list: one "NN | prompt" line per image. Other lines are ignored.
+01 | A small red fox wearing a blue scarf reading a big book under an oak tree in autumn, warm afternoon light, not cartoon, no text on the book
+02 | A cosy village bakery at dawn with bread in the window and a bicycle outside, no people, no signs, painted style, not photorealistic
+03 | A small red fox wearing a blue scarf crossing a wooden bridge over a stream with a lantern, evening, not anime
+04 | An old lighthouse on a cliff during a storm, big waves, one boat heading home, not a photograph

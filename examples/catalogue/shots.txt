@@ -1,0 +1,5 @@
+Bakery catalogue: one "NN | prompt" line per product photo. Other lines are ignored.
+01 | A round sourdough loaf with a dusted top on a wooden board, no packaging, no hands
+02 | Three chocolate chip cookies stacked, one broken in half, no logo, not on a plate
+03 | A strawberry cream cake slice on a white plate with a fork, no text
+04 | A paper bag of cinnamon rolls, plain brown bag with no printing, not a drawing
