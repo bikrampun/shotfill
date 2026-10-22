@@ -44,10 +44,8 @@ understand negation: "not cartoon" makes it draw a cartoon. Return JSON with:
 
 Prompt: """
 REWRITE_SCHEMA = {"type": "object", "required": ["scene", "avoid", "checks", "must_show"],
-                  "properties": {"scene": {"type": "string"},
-                                 "avoid": {"type": "array", "items": {"type": "string"}},
-                                 "checks": {"type": "array", "items": {"type": "string"}},
-                                 "must_show": {"type": "array", "items": {"type": "string"}}}}
+                  "properties": {"scene": {"type": "string"}} | {
+                      k: {"type": "array", "items": {"type": "string"}} for k in ("avoid", "checks", "must_show")}}
 
 
 def load_shots(path):
@@ -97,20 +95,11 @@ def positive_for(plan, attempts, style):
 def checks_for(plan, profile):
     """Profile style checks, the character's checks when it's in the shot, then the scene checks.
     Only scene1 (the main subject) is hard; other scene details are warnings."""
-    checks = {k: tuple(v) for k, v in profile["checks"].items()}
+    checks = dict(profile["checks"])
     if plan["has_character"]:
-        checks |= {k: tuple(v) for k, v in profile["character"]["checks"].items()}
+        checks |= profile["character"]["checks"]
     checks |= {f"scene{i}": (q, "yes") for i, q in enumerate(plan["checks"][:3], 1)}
     return checks
-
-
-def soft_keys(profile):
-    return {"scene2", "scene3", *profile.get("soft", [])}
-
-
-def failures(checks, answers, soft):
-    """Hard checks whose answer is wrong. A missing answer counts as a failure (fail closed)."""
-    return [k for k, (_, want) in checks.items() if k not in soft and answers.get(k) != want]
 
 
 def judge(image, checks):
@@ -142,7 +131,7 @@ def draw(todo, state, out, profile, device):
 
 
 def check(todo, state, out, profile, max_attempts):
-    soft = soft_keys(profile)
+    soft = {"scene2", "scene3", *profile.get("soft", [])}
     for shot in todo:
         s, a = state[shot], state[shot]["attempts"][-1]
         checks = checks_for(s["plan"], profile)
@@ -152,8 +141,10 @@ def check(todo, state, out, profile, max_attempts):
         except Exception as e:  # broken JSON or Ollama down: the image fails, never slips through
             a["answers"], a["error"] = {}, str(e)
         a["check_s"] = round(time.perf_counter() - t)
-        a["failed"] = failures(checks, a["answers"], soft)
-        a["warnings"] = [k for k, (_, want) in checks.items() if k in soft and a["answers"].get(k) != want]
+        # A missing answer is wrong too: if the check breaks, the image fails (fail closed).
+        wrong = [k for k, (_, want) in checks.items() if a["answers"].get(k) != want]
+        a["failed"] = [k for k in wrong if k not in soft]
+        a["warnings"] = [k for k in wrong if k in soft]
         if not a["failed"]:
             s["status"] = "pass"
         elif len(s["attempts"]) >= max_attempts:
@@ -188,7 +179,7 @@ def finish(state, out):
                 shutil.copy(out / min(done, key=lambda a: len(a["failed"]))["image"], out / f"{shot}.png")
             for n, a in enumerate(done, 1):
                 w.writerow([shot, n, a["image"], "pass" if not a["failed"] else "fail", " ".join(a["failed"]),
-                            " ".join(a.get("warnings", [])), json.dumps(a["answers"]), a["positive"],
+                            " ".join(a["warnings"]), json.dumps(a["answers"]), a["positive"],
                             s["plan"]["negative"], a["draw_s"], a["check_s"], ""])
 
 

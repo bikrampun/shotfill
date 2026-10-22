@@ -4,8 +4,8 @@ import json
 import tempfile
 from pathlib import Path
 
-from shotfill import (checks_for, drop_negations, failures, load_shots, plan_round, positive_for,
-                      soft_keys)
+import shotfill
+from shotfill import check, checks_for, drop_negations, load_shots, plan_round, positive_for
 
 PROFILE = json.loads((Path(__file__).parent / "examples" / "storybook" / "profile.json").read_text())
 
@@ -26,14 +26,23 @@ plan = {"has_character": True, "checks": ["a?"]}
 checks = checks_for(plan, PROFILE)
 assert set(checks) == style_checks | {"fox", "scarf", "scene1"}
 
-# Only the main subject (scene1) and non-soft checks can fail an image; missing answers fail it.
-soft = soft_keys(PROFILE)
+# Only the main subject (scene1) and non-soft checks can fail an image; soft misses are warnings;
+# a broken check fails the image. Gemma is faked; check() only needs its answers.
 good = {"painted": "yes", "cartoon": "no", "text": "no", "fox": "yes", "scarf": "no", "scene1": "yes"}
-assert failures(checks, good, soft) == []
-assert failures(checks, good | {"text": "yes"}, soft) == ["text"]
-assert failures(checks_for({"has_character": False, "checks": ["a?", "b?"]}, PROFILE),
-                {"painted": "yes", "cartoon": "no", "text": "no", "scene1": "yes", "scene2": "no"}, soft) == []
-assert failures(checks, {}, soft) == [k for k in checks if k not in soft]
+answers = {"01-a1.png": good, "02-a1.png": good | {"text": "yes"},
+           "03-a1.png": {"painted": "yes", "cartoon": "no", "text": "no", "scene1": "yes", "scene2": "no"}}
+# 04 has no answers, so the fake raises KeyError, like a broken Gemma reply.
+shotfill.judge, shotfill.ollama = lambda image, checks: answers[image.name], lambda *a, **k: ""
+state = {s: {"status": "pending", "attempts": [{"image": f"{s}-a1.png"}],
+             "plan": {"has_character": s in ("01", "02", "04"), "checks": ["a?", "b?"][:1 + (s == "03")]}}
+         for s in ("01", "02", "03", "04")}
+with tempfile.TemporaryDirectory() as d:
+    check(list(state), state, Path(d), PROFILE, max_attempts=1)
+got = {s: (v["status"], v["attempts"][0]["failed"], v["attempts"][0]["warnings"]) for s, v in state.items()}
+assert got["01"] == ("pass", [], ["scarf"]), got
+assert got["02"] == ("needs_review", ["text"], ["scarf"]), got
+assert got["03"] == ("pass", [], ["scene2"]), got
+assert got["04"] == ("needs_review", ["painted", "cartoon", "text", "fox", "scene1"], ["scarf"]), got
 
 # A redraw puts whatever the last attempt didn't show right after the style.
 plan = {"scene": "a fox on a bridge", "must_show": ["wooden bridge", "lantern"]}
