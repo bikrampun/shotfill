@@ -62,6 +62,16 @@ Output goes to `out/<shot list name>/`:
 
 Options: `--out DIR`, `--attempts N` (default 3), `--device` (`GPU.0` by default; `GPU.1` or `CPU` also work), and shot numbers at the end to run only some shots.
 
+## Check the checker
+
+Gemma's pass/fail is a guess, so measure it against your own eyes. Fill the empty `my_verdict` column in `results.csv` with `use` or `no` for each image, then run:
+
+```sh
+python agreement.py out/<shot list name>/results.csv
+```
+
+It prints how often Gemma and you agree, which images Gemma passed that you rejected, and which it failed that you'd have kept. Rows you leave empty are ignored.
+
 ## Licences
 
 The code is MIT. The models have their own licences: SDXL base 1.0 is under CreativeML Open RAIL++-M, which allows commercial use of generated images with use restrictions. Gemma 4 is under Apache 2.0.
