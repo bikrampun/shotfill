@@ -37,8 +37,11 @@ understand negation: "not cartoon" makes it draw a cartoon. Return JSON with:
   reference images, and anything that should be avoided.
 - avoid: short noun phrases for things the prompt says to leave out (e.g. "temples", "logos").
 - checks: 1 to 3 yes/no questions about things a viewer can SEE in a single picture (people,
-  objects, place), main subject first. Ask about objects, not actions or changes over time.
-  Each answer must be YES if the image matches (e.g. "Is there a pressure cooker on a stove?").
+  objects, place), main subject first. Each answer must be YES if the image matches (e.g. "Is
+  there a pressure cooker on a stove?"). Ask about objects, not actions or changes over time.
+  Describe people by how they look or what they hold, never by job, nationality or name, which a
+  picture can't show ("an old man holding coins", not "a banker"; "a young woman", not "a
+  French woman").
 - must_show: for each check, in the same order, the 2 to 5 words it looks for (e.g. "pressure
   cooker on stove").
 
@@ -70,8 +73,14 @@ def ollama(prompt, schema=None, image=None, keep_alive="5m"):
     if image:
         body["images"] = [base64.b64encode(Path(image).read_bytes()).decode()]
     req = urllib.request.Request(OLLAMA, json.dumps(body).encode(), {"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=1800) as r:
-        return json.load(r)["response"]
+    for tries_left in (2, 1, 0):
+        try:
+            with urllib.request.urlopen(req, timeout=1800) as r:
+                return json.load(r)["response"]
+        except OSError:  # Ollama restarting (e.g. after an app update) drops the connection; let it come back
+            if not tries_left:
+                raise
+            time.sleep(30)
 
 
 def rewrite(prompt, profile):

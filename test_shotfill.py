@@ -1,5 +1,6 @@
 """Checks for the logic that decides what to draw and what counts as a pass. No models needed.
 run: python test_shotfill.py"""
+import io
 import json
 import tempfile
 from pathlib import Path
@@ -13,6 +14,24 @@ with tempfile.TemporaryDirectory() as d:
     f = Path(d) / "shots.txt"
     f.write_text("A title line | not a shot\n01 | a fox, no text\n\n02 | a bakery\n", encoding="utf-8")
     assert load_shots(f) == {"01": "a fox, no text", "02": "a bakery"}
+
+# A dropped connection (Ollama restarting) is retried; one that never comes back still raises.
+calls = []
+def flaky(req, timeout, fails):
+    calls.append(1)
+    if len(calls) <= fails:
+        raise ConnectionResetError
+    return io.BytesIO(b'{"response": "hi"}')
+shotfill.time.sleep = lambda s: None
+shotfill.urllib.request.urlopen = lambda req, timeout: flaky(req, timeout, fails=1)
+assert shotfill.ollama("x") == "hi" and len(calls) == 2
+calls.clear()
+shotfill.urllib.request.urlopen = lambda req, timeout: flaky(req, timeout, fails=3)
+try:
+    shotfill.ollama("x")
+    assert False, "should have raised"
+except ConnectionResetError:
+    assert len(calls) == 3
 
 # A negated clause would be drawn, so it is dropped; the rest of the scene stays.
 assert drop_negations("A bakery at dawn, no people, bread in the window. Not a photo.") == \
