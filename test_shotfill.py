@@ -2,6 +2,8 @@
 run: python test_shotfill.py"""
 import io
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -32,6 +34,13 @@ try:
     assert False, "should have raised"
 except ConnectionResetError:
     assert len(calls) == 3
+
+# agreement.py counts matches between Gemma's verdict and my_verdict; unlabelled rows are ignored.
+with tempfile.TemporaryDirectory() as d:
+    f = Path(d) / "results.csv"
+    f.write_text("shot,attempt,verdict,my_verdict\n1,1,pass,use\n2,1,fail,no\n3,1,pass,no\n4,1,fail,use\n5,1,pass,\n", encoding="utf-8")
+    out = subprocess.run([sys.executable, "agreement.py", str(f)], capture_output=True, text=True, check=True).stdout
+assert "2/4 images" in out and "(50%)" in out and "03-a1" in out and "04-a1" in out, out
 
 # A negated clause would be drawn, so it is dropped; the rest of the scene stays.
 assert drop_negations("A bakery at dawn, no people, bread in the window. Not a photo.") == \
