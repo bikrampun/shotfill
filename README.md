@@ -60,7 +60,24 @@ Output goes to `out/<shot list name>/`:
 - `01-a1.png`, `01-a2.png`, … every attempt
 - `results.csv`: each attempt's verdict, failed checks, warnings, Gemma's answers and the exact prompt used, plus an empty `my_verdict` column for your own review
 
-Options: `--out DIR`, `--attempts N` (default 3), `--device` (`GPU.0` by default and the one used for the full runs; one shot also ran on `GPU.1`, about 165 s per image; `CPU` is untested), and shot numbers at the end to run only some shots.
+Options: `--out DIR`, `--attempts N` (default 3), `--backend` (`sdxl` by default, or `zimage`, see below), `--device` (`GPU.0` by default and the one used for the full runs; one SDXL shot also ran on `GPU.1`, about 165 s per image; `CPU` is untested), and shot numbers at the end to run only some shots.
+
+## Optional: Z-Image Turbo
+
+`--backend zimage` draws with [Z-Image Turbo](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo) instead of SDXL, through [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp). In my runs it followed prompts more closely than SDXL, but it is slower, and Turbo has no negative prompt, so the "things to avoid" are never passed to it. Gemma's checks have to catch them, and they sometimes don't get fixed by a redraw.
+
+Put these four things in `models/zimage/` (`--device GPU.0` means Vulkan device 0):
+
+- the Vulkan build of stable-diffusion.cpp, unzipped so that `sd-cli.exe` sits in that folder ([releases](https://github.com/leejet/stable-diffusion.cpp/releases))
+- [`z_image_turbo-Q4_0.gguf`](https://huggingface.co/leejet/Z-Image-Turbo-GGUF/blob/main/z_image_turbo-Q4_0.gguf)
+- [`Qwen3-4B-Instruct-2507-Q4_K_M.gguf`](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/blob/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf)
+- [`ae.safetensors`](https://huggingface.co/black-forest-labs/FLUX.1-schnell/blob/main/ae.safetensors), the VAE (the decoder that turns the model's output into the picture) that Z-Image uses. It is published in the FLUX.1-schnell repo; Shotfill doesn't use the FLUX.1-schnell model itself. Accept the terms on that page first
+
+```sh
+python shotfill.py examples/storybook/shots.txt --profile examples/storybook/profile.json --backend zimage
+```
+
+On the same laptop the four storybook shots took 36 minutes: 3 passed, and the bakery shot failed the "readable text" check on all 3 attempts (tiny price tags and a sign, which the SDXL backend's avoid list keeps out). Each image took 280 to 320 s, because `sd-cli` reloads the model for every image. I have only run this example, not a full shot list, and not on a machine other than the one in Setup.
 
 ## Check the checker
 
@@ -74,4 +91,4 @@ It prints how often Gemma and you agree, which images Gemma passed that you reje
 
 ## Licences
 
-The code is MIT. The models have their own licences: SDXL base 1.0 is under CreativeML Open RAIL++-M, which allows commercial use of generated images with use restrictions. Gemma 4 is under Apache 2.0.
+The code is MIT. The models have their own licences: SDXL base 1.0 is under CreativeML Open RAIL++-M, which allows commercial use of generated images with use restrictions. Gemma 4 is under Apache 2.0. For the optional Z-Image backend: Z-Image Turbo, its Qwen3 text encoder and the FLUX.1-schnell VAE are Apache 2.0, and stable-diffusion.cpp is MIT. None of these files are included here; you download them from the links above.
