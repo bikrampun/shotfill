@@ -42,6 +42,26 @@ with tempfile.TemporaryDirectory() as d:
     out = subprocess.run([sys.executable, "agreement.py", str(f)], capture_output=True, text=True, check=True).stdout
 assert "2/4 images" in out and "(50%)" in out and "03-a1" in out and "04-a1" in out, out
 
+# The Z-Image painter builds the sd-cli call (Turbo settings, Vulkan device from --device, no negative prompt)
+# and a failed call raises with sd-cli's output.
+sd_calls = []
+def fake_sd(code):
+    def run(cmd, **kw):
+        sd_calls.append((cmd, kw["env"]))
+        return type("R", (), {"returncode": code, "stdout": "", "stderr": "boom"})()
+    return run
+shotfill.subprocess.run = fake_sd(0)
+shotfill.zimage_painter("GPU.1")("a fox", "no text", 1024, 576, 1003, Path("x.png"))
+cmd, env = sd_calls[0]
+assert env["GGML_VK_VISIBLE_DEVICES"] == "1" and cmd[cmd.index("-p") + 1] == "a fox"
+assert cmd[cmd.index("--steps") + 1] == "8" and "no text" not in cmd and cmd[-1] == "x.png"
+shotfill.subprocess.run = fake_sd(1)
+try:
+    shotfill.zimage_painter("GPU.0")("a fox", "", 1024, 576, 1, Path("x.png"))
+    assert False, "should have raised"
+except RuntimeError as e:
+    assert "boom" in str(e)
+
 # A negated clause would be drawn, so it is dropped; the rest of the scene stays.
 assert drop_negations("A bakery at dawn, no people, bread in the window. Not a photo.") == \
     "A bakery at dawn, bread in the window"

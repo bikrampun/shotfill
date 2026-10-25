@@ -12,20 +12,23 @@ SDXL (~9 GB) and Gemma (~7 GB) don't fit in 16 GB together, so the work runs in 
 draw everything pending, free SDXL, check everything, unload Gemma, repeat for failures.
 Progress is saved to OUT/state.json after every image, so a rerun resumes where it stopped.
 
-usage: python shotfill.py SHOT_LIST --profile PROFILE [--out DIR] [--attempts 3] [--device GPU.0] [SHOT ...]
+usage: python shotfill.py SHOT_LIST --profile PROFILE [--out DIR] [--attempts 3] [--backend sdxl|zimage] [--device GPU.0] [SHOT ...]
 """
 import argparse
 import base64
 import csv
 import json
+import os
 import re
 import shutil
+import subprocess
 import time
 import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).parent
 SDXL = HERE / "models" / "sdxl-int8"
+ZIMAGE = HERE / "models" / "zimage"
 OLLAMA = "http://localhost:11434/api/generate"
 GEMMA = "gemma4:e4b"
 NEGATION = re.compile(r"\b(?:no|not|without|never|avoid|don't|isn't)\b", re.I)
@@ -119,10 +122,36 @@ def judge(image, checks):
     return json.loads(ollama(prompt, schema, image))
 
 
-def draw(todo, state, out, profile, device):
+def sdxl_painter(device):
     import openvino_genai as ov_genai  # only this phase needs it
     from PIL import Image
     pipe = ov_genai.Text2ImagePipeline(str(SDXL), device)
+
+    def paint(positive, negative, width, height, seed, image):
+        result = pipe.generate(positive, negative_prompt=negative, width=width, height=height,
+                               num_inference_steps=20, rng_seed=seed)
+        Image.fromarray(result.data[0]).save(image)
+    return paint
+
+
+def zimage_painter(device):
+    """Z-Image Turbo through stable-diffusion.cpp's sd-cli, one call per image (it reloads the model each time)."""
+    env = {**os.environ, "GGML_VK_VISIBLE_DEVICES": device.rpartition(".")[2]}  # GPU.0 -> Vulkan device 0
+
+    def paint(positive, negative, width, height, seed, image):  # Turbo has no negative prompt (CFG 1)
+        cmd = [str(ZIMAGE / ("sd-cli.exe" if os.name == "nt" else "sd-cli")),
+               "--diffusion-model", str(ZIMAGE / "z_image_turbo-Q4_0.gguf"), "--vae", str(ZIMAGE / "ae.safetensors"),
+               "--llm", str(ZIMAGE / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"), "-p", positive,
+               "--cfg-scale", "1.0", "--steps", "8", "-W", str(width), "-H", str(height), "--seed", str(seed),
+               "--max-vram", "vulkan0=6", "--backend", "te=cpu", "--vae-tiling", "-o", str(image)]
+        r = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(f"sd-cli failed ({r.returncode}): {(r.stdout + r.stderr)[-500:]}")
+    return paint
+
+
+def draw(todo, state, out, profile, backend, device):
+    paint = {"sdxl": sdxl_painter, "zimage": zimage_painter}[backend](device)
     width, height = profile.get("size", [1024, 576])
     for shot in todo:
         s = state[shot]
@@ -130,9 +159,7 @@ def draw(todo, state, out, profile, device):
         image = out / f"{shot}-a{n}.png"
         positive = positive_for(s["plan"], s["attempts"], profile["style"])
         t = time.perf_counter()
-        result = pipe.generate(positive, negative_prompt=s["plan"]["negative"], width=width, height=height,
-                               num_inference_steps=20, rng_seed=1000 * n + int(shot))
-        Image.fromarray(result.data[0]).save(image)
+        paint(positive, s["plan"]["negative"], width, height, 1000 * n + int(shot), image)
         s["attempts"].append({"image": image.name, "positive": positive,
                               "draw_s": round(time.perf_counter() - t)})
         save(state, out)
@@ -198,7 +225,9 @@ def main():
     p.add_argument("--profile", required=True, help="profile JSON: style, things to avoid, checks")
     p.add_argument("--out", default=None, help="output folder (default: out/<shot list name>)")
     p.add_argument("--attempts", type=int, default=3)
-    p.add_argument("--device", default="GPU.0", help="OpenVINO device, e.g. GPU.0, GPU.1, CPU")
+    p.add_argument("--backend", choices=["sdxl", "zimage"], default="sdxl",
+                   help="sdxl (default, OpenVINO) or zimage (Z-Image Turbo through stable-diffusion.cpp, no avoid list)")
+    p.add_argument("--device", default="GPU.0", help="GPU.0, GPU.1 (sdxl also takes CPU)")
     p.add_argument("shots", nargs="*", help="only these shots (default: all)")
     a = p.parse_args()
 
@@ -226,7 +255,7 @@ def main():
         print(f"round {n}: drawing {len(to_draw)}, checking {len(to_draw) + len(unchecked)}", flush=True)
         if to_draw:
             ollama("", keep_alive=0)
-            draw(to_draw, state, out, profile, a.device)
+            draw(to_draw, state, out, profile, a.backend, a.device)
         check(unchecked + to_draw, state, out, profile, a.attempts)
 
     finish(state, out)
