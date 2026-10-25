@@ -5,6 +5,8 @@ import csv
 import sys
 
 rows = [r for r in csv.DictReader(open(sys.argv[1], encoding="utf-8")) if r["my_verdict"].strip()]
+if not rows:
+    sys.exit("no labelled rows: fill the my_verdict column with use or no first")
 cells = {(g, m): [] for g in (True, False) for m in (True, False)}
 for r in rows:
     cells[(r["verdict"] == "pass", r["my_verdict"].strip() == "use")].append(f"{r['shot'].zfill(2)}-a{r['attempt']}")

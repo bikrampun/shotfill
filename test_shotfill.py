@@ -40,7 +40,10 @@ with tempfile.TemporaryDirectory() as d:
     f = Path(d) / "results.csv"
     f.write_text("shot,attempt,verdict,my_verdict\n1,1,pass,use\n2,1,fail,no\n3,1,pass,no\n4,1,fail,use\n5,1,pass,\n", encoding="utf-8")
     out = subprocess.run([sys.executable, "agreement.py", str(f)], capture_output=True, text=True, check=True).stdout
+    f.write_text("shot,attempt,verdict,my_verdict\n1,1,pass,\n", encoding="utf-8")
+    empty = subprocess.run([sys.executable, "agreement.py", str(f)], capture_output=True, text=True)
 assert "2/4 images" in out and "(50%)" in out and "03-a1" in out and "04-a1" in out, out
+assert empty.returncode and "no labelled rows" in empty.stderr, empty.stderr  # not a ZeroDivisionError
 
 # The Z-Image painter builds the sd-cli call (Turbo settings, Vulkan device from --device, no negative prompt)
 # and a failed call raises with sd-cli's output.
