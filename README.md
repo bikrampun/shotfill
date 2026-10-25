@@ -13,7 +13,7 @@ It's for anyone who needs a few dozen matching images rather than one masterpiec
 
 ![Terminal run of Shotfill on two storybook shots with Z-Image Turbo](images/terminal-demo.gif)
 
-That run is sped up: the real one took 8 minutes. These are the two examples in this repo, the storybook shots drawn with Z-Image Turbo (top) and the catalogue shots drawn with SDXL (bottom):
+That run is sped up: the real one took 8 minutes. It used the optional Z-Image backend (`--backend zimage`, see [below](#optional-z-image-turbo)); the default is SDXL. These are the two examples in this repo, the storybook shots drawn with Z-Image Turbo (top) and the catalogue shots drawn with SDXL (bottom):
 
 ![Three painted storybook images above three bakery product photos](images/examples.jpg)
 
@@ -87,6 +87,8 @@ python shotfill.py examples/storybook/shots.txt --profile examples/storybook/pro
 
 On the same laptop the four storybook shots took 36 minutes: 3 passed, and the bakery shot failed the "readable text" check on all 3 attempts (tiny price tags and a sign, which the SDXL backend's avoid list keeps out). Each image took 280 to 320 s, because `sd-cli` reloads the model for every image. I have only run this example, not a full shot list, and not on a machine other than the one in Setup.
 
+I labelled the 6 images from that run (4 shots, 6 attempts) with `agreement.py`: Gemma and I agreed on 4 of 6.
+
 ## Check the checker
 
 Gemma's pass/fail is a guess, so measure it against your own eyes. Fill the empty `my_verdict` column in `results.csv` with `use` or `no` for each image, then run:
@@ -99,7 +101,7 @@ It prints how often Gemma and you agree, which images Gemma passed that you reje
 
 ![Bar chart of Gemma's pass and fail verdicts against my labels on 25 images](images/agreement-chart.png)
 
-That chart is from my own 25 labels on one 16-shot run: Gemma's fails were right 10 times in 13, and its passes were right 6 times in 12.
+That chart is from my own labels on a separate test: a 16-shot list for a video, drawn with SDXL and checked by Gemma 4, which drew 25 images because misses were redrawn. I labelled each of the 25 `use` or `no`. Gemma's fails were right 10 times in 13, and its passes were right 6 times in 12. One reviewer and one run, so treat it as a rough measure.
 
 ## Licences
 
