@@ -11,6 +11,12 @@ You write one line per image. Shotfill draws them all on your own laptop overnig
 
 It's for anyone who needs a few dozen matching images rather than one masterpiece: scenes for a narrated YouTube video, pages of a picture book, a shop's product photos, cover images for a blog, illustrations for a course.
 
+![Terminal run of Shotfill on two storybook shots with Z-Image Turbo](images/terminal-demo.gif)
+
+That run is sped up: the real one took 8 minutes. These are the two examples in this repo, the storybook shots drawn with Z-Image Turbo (top) and the catalogue shots drawn with SDXL (bottom):
+
+![Three painted storybook images above three bakery product photos](images/examples.jpg)
+
 ## How it works
 
 For each shot:
@@ -19,6 +25,8 @@ For each shot:
 2. **SDXL draws it** on the laptop's Intel GPU through OpenVINO.
 3. **Gemma checks it.** It answers the profile's style questions (is it painted? any readable text?) and the shot's own questions. Python, not the model, decides pass or fail. If the check itself errors, the image fails.
 4. **Misses are redrawn** with a new seed, with whatever was missing moved to the front of the prompt, up to 3 attempts. Shots that never pass keep their best attempt and are marked for review.
+
+![Diagram of the Shotfill loop: shot list, Gemma, pass/fail rule, results.csv, with SDXL and Z-Image as painters](images/diagram.png)
 
 SDXL (about 9 GB) and Gemma (about 7 GB) don't fit in 16 GB of RAM at the same time, so Shotfill works in rounds: draw everything pending, free SDXL, check everything, unload Gemma, then redraw the misses. Progress is saved after every image, so if the laptop restarts, run the same command again and it carries on.
 
@@ -88,6 +96,10 @@ python agreement.py out/<shot list name>/results.csv
 ```
 
 It prints how often Gemma and you agree, which images Gemma passed that you rejected, and which it failed that you'd have kept. Rows you leave empty are ignored.
+
+![Bar chart of Gemma's pass and fail verdicts against my labels on 25 images](images/agreement-chart.png)
+
+That chart is from my own 25 labels on one 16-shot run: Gemma's fails were right 10 times in 13, and its passes were right 6 times in 12.
 
 ## Licences
 
