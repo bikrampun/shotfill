@@ -60,7 +60,7 @@ Output goes to `out/<shot list name>/`:
 - `01-a1.png`, `01-a2.png`, … every attempt
 - `results.csv`: each attempt's verdict, failed checks, warnings, Gemma's answers and the exact prompt used, plus an empty `my_verdict` column for your own review
 
-Options: `--out DIR`, `--attempts N` (default 3), `--device` (`GPU.0` by default; `GPU.1` or `CPU` also work), and shot numbers at the end to run only some shots.
+Options: `--out DIR`, `--attempts N` (default 3), `--device` (`GPU.0` by default and the one used for the full runs; one shot also ran on `GPU.1`, about 165 s per image; `CPU` is untested), and shot numbers at the end to run only some shots.
 
 ## Check the checker
 
